@@ -1,0 +1,39 @@
+# Build
+target/
+debug/
+release/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets — SOHA ne commitolj valós identity-t vagy configot
+*.key
+identity.json
+identity.enc
+config.toml
+
+# Data
+data/
+*.db
+*.db.enc
+
+# Node (ha bármikor JS tooling kerülne be)
+node_modules/
+
+# CMake build
+build/
+cmake-build-*/
+
+# Qt
+*.pro.user
+moc_*.cpp
+qrc_*.cpp
+ui_*.h

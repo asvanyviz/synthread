@@ -1,0 +1,18 @@
+[package]
+name = "synthread-chat-dm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+synthread-core = { path = "../../core" }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+base64 = { workspace = true }
+chrono = { workspace = true }
+x25519-dalek = { workspace = true }
+chacha20poly1305 = { workspace = true }
+axum = { workspace = true }

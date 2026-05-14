@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-release:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        # Add macos-latest, windows-latest when GUI is ready
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release
+        run: cargo build --release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthread-${{ matrix.os }}
+          path: target/release/synthread
+
+  github-release:
+    name: GitHub Release
+    needs: build-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: synthread-ubuntu-latest
+
+      - name: Generate changelog
+        run: |
+          echo "## Synthread $(git describe --tags)" > release-notes.md
+          echo "" >> release-notes.md
+          git log --oneline $(git describe --tags --abbrev=0 HEAD^)..HEAD >> release-notes.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          files: synthread
