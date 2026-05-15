@@ -3,6 +3,9 @@
 
 #include <QObject>
 #include <QString>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonDocument>
 #include <QTimer>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
