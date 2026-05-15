@@ -11,6 +11,7 @@
 //!   POST /api/peers/<id>/friend-request
 //!   POST /api/peers/<id>/friend-accept
 //!   GET  /events     → SSE event stream
+//!   GET  /dashboard  → WebUI status page
 
 use axum::{
     extract::{Path, State},
@@ -154,6 +155,7 @@ impl ApiServer {
             )
             .route("/api/peers/{id}/friend-accept", post(friend_accept_handler))
             .route("/events", get(sse_handler))
+            .route("/dashboard", get(dashboard_handler))
             .layer(cors)
             .with_state(self.state.clone())
     }
@@ -318,4 +320,100 @@ async fn sse_handler(
     };
 
     Sse::new(stream).keep_alive(KeepAlive::default())
+}
+
+/// Embedded WebUI dashboard — minimal HTML status page.
+async fn dashboard_handler(State(state): State<SharedState>) -> axum::response::Html<String> {
+    let peers = state.peer_manager.read().await;
+    let plugins = state.plugin_manager.read().await;
+    let uptime = state.start_time.elapsed().as_secs();
+
+    let peer_html = peers
+        .list_known()
+        .iter()
+        .map(|p| {
+            let friend_class = if p.relationship == crate::peer::Relationship::Friend {
+                " friend"
+            } else {
+                ""
+            };
+            let prio = if p.priority { " ⭐" } else { "" };
+            let latency = if let Some(ms) = p.latency_ms {
+                format!(" {}ms", ms)
+            } else {
+                String::new()
+            };
+            format!(
+                r#"<div class="peer{}">{} — {} {}{}</div>"#,
+                friend_class,
+                &p.peer_id[..p.peer_id.len().min(16)],
+                p.relationship,
+                prio,
+                latency,
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let html = format!(
+        r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Synthread Dashboard</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#1a1a2e;color:#e0e0e0;padding:2rem}}
+.card{{background:#16213e;border-radius:8px;padding:1.5rem;margin-bottom:1rem}}
+h1{{color:#00d4ff;margin-bottom:1rem}}
+h2{{color:#7b68ee;margin-bottom:.5rem}}
+.stat{{display:flex;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid #2a2a4a}}
+.stat-label{{color:#888}}.stat-value{{color:#00d4ff;font-weight:bold}}
+.peer{{padding:.5rem;margin:.25rem 0;background:#0f3460;border-radius:4px}}
+.friend{{border-left:3px solid #00d4ff}}
+#events{{max-height:300px;overflow-y:auto;font-family:monospace;font-size:.85rem}}
+.event{{padding:.25rem 0}}
+</style>
+</head>
+<body>
+<h1>Synthread Dashboard</h1>
+<div class="card">
+<h2>Status</h2>
+<div class="stat"><span class="stat-label">Peer ID</span><span class="stat-value">{peer_id}</span></div>
+<div class="stat"><span class="stat-label">Version</span><span class="stat-value">{version}</span></div>
+<div class="stat"><span class="stat-label">Uptime</span><span class="stat-value">{uptime}s</span></div>
+<div class="stat"><span class="stat-label">Connected</span><span class="stat-value">{connected}</span></div>
+<div class="stat"><span class="stat-label">Known Peers</span><span class="stat-value">{known}</span></div>
+<div class="stat"><span class="stat-label">Friends</span><span class="stat-value">{friends}</span></div>
+<div class="stat"><span class="stat-label">Plugins</span><span class="stat-value">{plugin_list}</span></div>
+</div>
+<div class="card">
+<h2>Peers</h2>
+{peer_html}
+</div>
+<div class="card">
+<h2>Events</h2>
+<div id="events">Connecting...</div>
+</div>
+<script>
+const es=new EventSource('/events');
+const el=document.getElementById('events');
+es.onmessage=(e)=>{{const d=document.createElement('div');d.className='event';d.textContent='['+new Date().toLocaleTimeString()+'] '+e.type+': '+e.data;el.prepend(d)}};
+es.addEventListener('peer_connected',(e)=>{{const d=JSON.parse(e.data);const x=document.createElement('div');x.className='event';x.innerHTML='<span style=color:#0f0>connected: '+d.peer_id+'</span>';el.prepend(x)}});
+es.onerror=()=>el.textContent='Disconnected. Retrying...';
+</script>
+</body>
+</html>"#,
+        peer_id = state.local_peer_id,
+        version = state.version,
+        uptime = uptime,
+        connected = peers.list_connected().len(),
+        known = peers.list_known().len(),
+        friends = peers.list_friends().len(),
+        plugin_list = plugins.list_plugins().join(", "),
+        peer_html = peer_html,
+    );
+
+    axum::response::Html(html)
 }
