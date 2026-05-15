@@ -28,8 +28,8 @@ use crate::plugin::PluginManager;
 
 /// Shared application state for the API server.
 pub struct AppState {
-    pub peer_manager: RwLock<PeerManager>,
-    pub plugin_manager: RwLock<PluginManager>,
+    pub peer_manager: Arc<RwLock<PeerManager>>,
+    pub plugin_manager: Arc<RwLock<PluginManager>>,
     pub local_peer_id: String,
     pub version: String,
     pub start_time: std::time::Instant,
@@ -38,15 +38,15 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(
-        peer_manager: PeerManager,
-        plugin_manager: PluginManager,
+    fn new(
+        peer_manager: Arc<RwLock<PeerManager>>,
+        plugin_manager: Arc<RwLock<PluginManager>>,
         local_peer_id: String,
     ) -> Self {
         let (event_tx, _) = broadcast::channel(256);
         Self {
-            peer_manager: RwLock::new(peer_manager),
-            plugin_manager: RwLock::new(plugin_manager),
+            peer_manager,
+            plugin_manager,
             local_peer_id,
             version: env!("CARGO_PKG_VERSION").to_string(),
             start_time: std::time::Instant::now(),
@@ -120,8 +120,8 @@ pub struct ApiServer {
 
 impl ApiServer {
     pub fn new(
-        peer_manager: PeerManager,
-        plugin_manager: PluginManager,
+        peer_manager: Arc<RwLock<PeerManager>>,
+        plugin_manager: Arc<RwLock<PluginManager>>,
         local_peer_id: String,
     ) -> Self {
         info!("API server initialized");

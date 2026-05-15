@@ -16,11 +16,30 @@ use libp2p::{
     identity::ed25519,
     kad::{self, store::MemoryStore, Mode},
     noise, ping,
+    request_response::{self, ProtocolSupport},
     swarm::{NetworkBehaviour, SwarmEvent},
-    tcp, yamux, Multiaddr, PeerId, SwarmBuilder,
+    tcp, yamux, Multiaddr, PeerId, StreamProtocol, SwarmBuilder,
 };
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tracing::{debug, info, warn};
+
+// ── Friend Protocol ──
+
+/// Friend request message sent over the wire (CBOR serialized).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FriendRequest {
+    pub from: String,
+    pub timestamp: String,
+    pub message: Option<String>,
+}
+
+/// Friend response sent back (CBOR serialized).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FriendResponse {
+    pub accepted: bool,
+    pub reason: Option<String>,
+}
 
 /// Combined network behaviour for libp2p.
 #[derive(NetworkBehaviour)]
@@ -29,6 +48,7 @@ pub struct SynthreadBehaviour {
     pub identify: identify::Behaviour,
     pub ping: ping::Behaviour,
     pub autonat: autonat::Behaviour,
+    pub friend_req: request_response::cbor::Behaviour<FriendRequest, FriendResponse>,
 }
 
 /// Core network layer managing the libp2p Swarm.
@@ -77,11 +97,21 @@ impl NetworkLayer {
                     let autonat =
                         autonat::Behaviour::new(local_peer_id, autonat::Config::default());
 
+                    // Friend request/response protocol
+                    let friend_req = request_response::cbor::Behaviour::new(
+                        [(
+                            StreamProtocol::new("/synthread/friend/1.0.0"),
+                            ProtocolSupport::Full,
+                        )],
+                        request_response::Config::default(),
+                    );
+
                     Ok(SynthreadBehaviour {
                         kademlia,
                         identify,
                         ping,
                         autonat,
+                        friend_req,
                     })
                 })
                 .map_err(|e| format!("behaviour build failed: {}", e))?
@@ -167,6 +197,28 @@ impl NetworkLayer {
     /// Get connected peers.
     pub fn connected_peers(&self) -> usize {
         self.swarm.connected_peers().count()
+    }
+
+    /// Send a friend request to a peer.
+    pub fn send_friend_request(&mut self, peer_id: PeerId, from_name: &str) -> Result<(), String> {
+        let req = FriendRequest {
+            from: from_name.to_string(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            message: None,
+        };
+        self.swarm
+            .behaviour_mut()
+            .friend_req
+            .send_request(&peer_id, req);
+        info!("Friend request sent to {}", peer_id);
+        Ok(())
+    }
+
+    /// Accept a friend request by responding through the request-response channel.
+    /// Note: The channel is consumed when responding, so this is handled in the event handler.
+    /// This is a placeholder — actual accept happens via the API which re-sends a friend request.
+    pub fn send_friend_accept(&mut self, peer_id: PeerId, from_name: &str) -> Result<(), String> {
+        self.send_friend_request(peer_id, from_name)
     }
 
     /// Handle a network event. Returns optional structured event.
@@ -310,6 +362,46 @@ impl NetworkLayer {
                 debug!("Incoming connection");
                 None
             }
+            SwarmEvent::Behaviour(SynthreadBehaviourEvent::FriendReq(
+                request_response::Event::Message { peer, message, .. },
+            )) => {
+                match message {
+                    request_response::Message::Request {
+                        request, channel, ..
+                    } => {
+                        info!("Friend request received from {}", peer);
+                        // Send auto-response — in real app, this would be handled by the user
+                        // But for protocol purposes, we propagate it as an event
+                        let _ = self.swarm.behaviour_mut().friend_req.send_response(
+                            channel,
+                            FriendResponse {
+                                accepted: false, // default — user handles via API
+                                reason: Some("pending user approval".into()),
+                            },
+                        );
+                        Some(NetworkEvent::FriendRequestReceived {
+                            peer_id: peer,
+                            request,
+                        })
+                    }
+                    request_response::Message::Response { response, .. } => {
+                        info!(
+                            "Friend response received from {}: accepted={}",
+                            peer, response.accepted
+                        );
+                        Some(NetworkEvent::FriendResponseReceived {
+                            peer_id: peer,
+                            response,
+                        })
+                    }
+                }
+            }
+            SwarmEvent::Behaviour(SynthreadBehaviourEvent::FriendReq(
+                request_response::Event::OutboundFailure { peer, error, .. },
+            )) => {
+                warn!("Friend request to {} failed: {:?}", peer, error);
+                None
+            }
             _ => {
                 debug!("Unhandled swarm event");
                 None
@@ -361,6 +453,16 @@ pub enum NetworkEvent {
     },
     PublicAddressConfirmed {
         address: Multiaddr,
+    },
+    /// Incoming friend request from a peer.
+    FriendRequestReceived {
+        peer_id: PeerId,
+        request: FriendRequest,
+    },
+    /// Response to our friend request.
+    FriendResponseReceived {
+        peer_id: PeerId,
+        response: FriendResponse,
     },
 }
 

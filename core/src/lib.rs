@@ -2,6 +2,7 @@ pub mod api;
 pub mod dht;
 pub mod identity;
 pub mod network;
+pub mod node;
 pub mod peer;
 pub mod plugin;
 pub mod security;
