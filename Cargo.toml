@@ -36,6 +36,9 @@ aes-gcm = "0.10"
 # Random
 rand = "0.8"
 
+# Hashing
+sha2 = "0.10"
+
 # P2P
 libp2p = { version = "0.54", features = [
     "tokio", "noise", "yamux", "tcp", "dns",
