@@ -26,3 +26,5 @@ base64 = { workspace = true }
 hex = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true }
+async-stream = { workspace = true }
+tokio-stream = { workspace = true }
