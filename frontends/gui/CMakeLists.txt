@@ -18,9 +18,6 @@ find_package(Qt6 REQUIRED COMPONENTS
 # Optional: Kirigami for KDE Plasma integration
 find_package(KF6Kirigami QUIET)
 
-# Rust ↔ C++ FFI bridge (stub — to be wired in Phase 3 completion)
-add_subdirectory(rust-bridge)
-
 # GUI sources
 set(GUI_SOURCES
     src/main.cpp
@@ -38,7 +35,6 @@ target_link_libraries(synthread-gui PRIVATE
     Qt6::QuickControls2
     Qt6::Widgets
     Qt6::Network
-    synthread-bridge
 )
 
 if(KF6Kirigami_FOUND)
