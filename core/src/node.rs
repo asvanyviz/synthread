@@ -15,9 +15,9 @@
 //! 4. Routes messages to plugins
 
 use libp2p::futures::StreamExt;
-use libp2p::{identity::ed25519, Multiaddr};
+use libp2p::{identity::ed25519, Multiaddr, PeerId};
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{mpsc, RwLock};
 use tracing::info;
 
 use crate::api::{ApiServer, SseEvent};
@@ -33,6 +33,8 @@ pub struct SynthreadNode {
     pub peer_manager: Arc<RwLock<PeerManager>>,
     pub plugin_manager: Arc<RwLock<PluginManager>>,
     pub api: ApiServer,
+    /// Receiver for outgoing messages from plugins.
+    outgoing_rx: mpsc::UnboundedReceiver<crate::plugin::OutgoingMessage>,
 }
 
 impl SynthreadNode {
@@ -75,8 +77,9 @@ impl SynthreadNode {
         let peer_manager = Arc::new(RwLock::new(PeerManager::new(peer_id.clone())));
 
         // 4. Plugin Manager
+        let (outgoing_tx, outgoing_rx) = mpsc::unbounded_channel();
         let mut plugin_manager = PluginManager::new();
-        plugin_manager.load_all(&peer_id);
+        plugin_manager.load_all(&peer_id, outgoing_tx);
         let plugin_manager = Arc::new(RwLock::new(plugin_manager));
 
         // 5. Network Layer
@@ -97,6 +100,7 @@ impl SynthreadNode {
             peer_manager,
             plugin_manager,
             api,
+            outgoing_rx,
         })
     }
 
@@ -116,10 +120,54 @@ impl SynthreadNode {
     pub async fn run_event_loop(&mut self) {
         info!("Event loop started");
         loop {
-            if let Some(event) = self.network.next_event().await {
-                self.process_network_event(event).await;
+            tokio::select! {
+                // Network events
+                net_event = self.network.next_event() => {
+                    if let Some(event) = net_event {
+                        self.process_network_event(event).await;
+                    }
+                }
+                // Outgoing messages from plugins
+                outgoing = self.outgoing_rx.recv() => {
+                    if let Some(msg) = outgoing {
+                        self.dispatch_outgoing(msg).await;
+                    } else {
+                        // Channel closed — all plugins dropped
+                        info!("Outgoing message channel closed");
+                        break;
+                    }
+                }
             }
         }
+    }
+
+    /// Dispatch an outgoing message from a plugin to the network.
+    async fn dispatch_outgoing(&mut self, msg: crate::plugin::OutgoingMessage) {
+        let peer_id: PeerId = match msg.target_peer.parse() {
+            Ok(pid) => pid,
+            Err(_) => {
+                tracing::warn!("Invalid peer ID in outgoing message: {}", msg.target_peer);
+                return;
+            }
+        };
+
+        // Store in the DHT as an inbox entry for offline delivery
+        use libp2p::kad::Record;
+        let inbox_key =
+            crate::dht::key_for_peer(crate::dht::namespaces::CHAT_INBOX, &msg.target_peer);
+        let record = Record::new(inbox_key, msg.data);
+        let _ = self
+            .network
+            .swarm
+            .behaviour_mut()
+            .kademlia
+            .put_record(record, libp2p::kad::Quorum::One);
+
+        tracing::debug!(
+            "Dispatched outgoing {} message to {}",
+            msg.protocol,
+            msg.target_peer
+        );
     }
 
     /// Process a network event and update local state.
