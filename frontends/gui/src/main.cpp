@@ -18,7 +18,9 @@ int main(int argc, char *argv[]) {
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty("synthread", &synthreadApp);
 
-    // Try Kirigami first, fall back to plain Qt Quick
+    // Add Qt6 QML import path (required on some systems)
+    engine.addImportPath("/usr/lib/x86_64-linux-gnu/qt6/qml");
+
     engine.load(QUrl(QStringLiteral("qrc:/main.qml")));
 
     if (engine.rootObjects().isEmpty()) {
