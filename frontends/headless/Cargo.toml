@@ -12,6 +12,7 @@ path = "src/main.rs"
 synthread-core = { path = "../../core" }
 synthread-chat-dm = { path = "../../plugins/chat-dm" }
 synthread-api-client = { path = "../api-client" }
+libp2p = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }

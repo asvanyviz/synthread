@@ -3491,6 +3491,7 @@ dependencies = [
  "axum",
  "clap",
  "crossterm",
+ "libp2p",
  "ratatui",
  "serde",
  "serde_json",

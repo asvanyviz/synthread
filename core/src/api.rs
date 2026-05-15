@@ -119,6 +119,14 @@ pub struct ApiServer {
     state: SharedState,
 }
 
+impl Clone for ApiServer {
+    fn clone(&self) -> Self {
+        Self {
+            state: self.state.clone(),
+        }
+    }
+}
+
 impl ApiServer {
     pub fn new(
         peer_manager: Arc<RwLock<PeerManager>>,

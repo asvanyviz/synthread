@@ -343,11 +343,45 @@ async fn main() -> io::Result<()> {
 
     match args.mode.as_str() {
         "headless" => {
-            tracing::warn!("Headless mode: API server would run here");
-            // In headless mode, we'd start the full SynthreadNode + API server
-            // For now, just wait
-            tokio::signal::ctrl_c().await.unwrap();
-            tracing::info!("Shutting down");
+            tracing::info!("Starting headless mode on port {}", args.port);
+            match synthread_core::node::NodeBuilder::new(Default::default()).build() {
+                Ok(mut node) => {
+                    // Start listening on default address
+                    let addr: libp2p::Multiaddr = "/ip4/0.0.0.0/tcp/9000".parse().unwrap();
+                    if let Err(e) = node.start_listening(&[addr]) {
+                        tracing::error!("Failed to start listening: {}", e);
+                        return Ok(());
+                    }
+
+                    // Clone API server before node gets moved
+                    let api = node.api.clone();
+
+                    // Spawn API server
+                    let api_handle = tokio::spawn(async move {
+                        if let Err(e) = api.start(args.port).await {
+                            tracing::error!("API server error: {}", e);
+                        }
+                    });
+
+                    // Spawn event loop (moves node)
+                    let event_handle = tokio::spawn(async move {
+                        node.run_event_loop().await;
+                    });
+
+                    tracing::info!("Synthread node running at http://127.0.0.1:{}", args.port);
+
+                    tokio::select! {
+                        _ = tokio::signal::ctrl_c() => {
+                            tracing::info!("Shutting down...");
+                        }
+                        _ = api_handle => {}
+                        _ = event_handle => {}
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Failed to create node: {}", e);
+                }
+            }
         }
         "tui" | _ => {
             run_tui(api).await?;
