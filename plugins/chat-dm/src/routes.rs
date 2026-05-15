@@ -5,7 +5,7 @@ use axum::{
     routing::{delete, get, post},
     Json, Router,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -35,12 +35,6 @@ struct SendRequest {
     text: String,
 }
 
-#[derive(Serialize)]
-struct SendResponse {
-    msg_id: String,
-    status: String,
-}
-
 #[derive(Deserialize)]
 struct MessagesQuery {
     peer: Option<String>,
@@ -60,19 +54,12 @@ async fn send_handler(
     Json(req): Json<SendRequest>,
 ) -> Json<serde_json::Value> {
     let mut plugin = state.plugin.write().await;
-    let placeholder_pubkey = [0u8; 32];
-    let signer = |data: &[u8]| {
-        vec![0u8; 64]
-    };
-
-    match plugin.send_dm(&req.to, &placeholder_pubkey, &req.text, signer) {
+    match plugin.send_dm(&req.to, &req.text) {
         Ok(msg_id) => Json(serde_json::json!({
             "msg_id": msg_id,
             "status": "sent"
         })),
-        Err(e) => Json(serde_json::json!({
-            "error": e
-        })),
+        Err(e) => Json(serde_json::json!({ "error": e })),
     }
 }
 
@@ -90,10 +77,20 @@ async fn messages_handler(
 }
 
 async fn peers_handler(
-    State(_state): State<SharedChatState>,
+    State(state): State<SharedChatState>,
 ) -> Json<serde_json::Value> {
-    // Peer list comes from PeerManager via the main API
-    Json(serde_json::json!([]))
+    let plugin = state.plugin.read().await;
+    let peers: Vec<serde_json::Value> = plugin
+        .pending_peers()
+        .iter()
+        .map(|(id, count)| {
+            serde_json::json!({
+                "peer_id": id,
+                "unread": count,
+            })
+        })
+        .collect();
+    Json(serde_json::json!(peers))
 }
 
 async fn delete_handler(
@@ -101,10 +98,7 @@ async fn delete_handler(
     Path(msg_id): Path<String>,
 ) -> Json<serde_json::Value> {
     let mut plugin = state.plugin.write().await;
-    // Delete requires knowing which peer the message is from;
-    // iterate all peers
-    let plugin_ref = &mut *plugin;
-    let deleted = false; // TODO: iterate store peers
+    let deleted = plugin.delete_message(&msg_id);
     Json(serde_json::json!({ "ok": deleted }))
 }
 
@@ -112,7 +106,15 @@ async fn pending_handler(
     State(state): State<SharedChatState>,
 ) -> Json<serde_json::Value> {
     let plugin = state.plugin.read().await;
-    // Return list of peers with pending (undelivered) messages
-    let pending: Vec<serde_json::Value> = vec![]; // TODO: iterate store
+    let pending: Vec<serde_json::Value> = plugin
+        .pending_peers()
+        .iter()
+        .map(|(id, count)| {
+            serde_json::json!({
+                "from": id,
+                "count": count,
+            })
+        })
+        .collect();
     Json(serde_json::json!(pending))
 }

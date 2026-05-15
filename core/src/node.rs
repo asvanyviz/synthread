@@ -79,7 +79,7 @@ impl SynthreadNode {
         // 4. Plugin Manager
         let (outgoing_tx, outgoing_rx) = mpsc::unbounded_channel();
         let mut plugin_manager = PluginManager::new();
-        plugin_manager.load_all(&peer_id, outgoing_tx);
+        plugin_manager.load_all(&peer_id, outgoing_tx, Some(identity.to_keypair_bytes()));
         let plugin_manager = Arc::new(RwLock::new(plugin_manager));
 
         // 5. Network Layer

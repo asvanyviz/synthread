@@ -30,6 +30,8 @@ pub trait Plugin: Send + Sync {
 pub struct PluginContext {
     pub store: PluginStore,
     pub peer_id: String,
+    /// Ed25519 signing key bytes for message signing (64 bytes: 32 secret + 32 public).
+    pub signing_key_bytes: Option<[u8; 64]>,
     /// Channel to send outgoing messages to the core for dispatch.
     pub outgoing_tx: Option<mpsc::UnboundedSender<OutgoingMessage>>,
 }
@@ -104,11 +106,17 @@ impl PluginManager {
     }
 
     /// Load all plugins with an outgoing message channel.
-    pub fn load_all(&mut self, peer_id: &str, outgoing_tx: mpsc::UnboundedSender<OutgoingMessage>) {
+    pub fn load_all(
+        &mut self,
+        peer_id: &str,
+        outgoing_tx: mpsc::UnboundedSender<OutgoingMessage>,
+        signing_key_bytes: Option<[u8; 64]>,
+    ) {
         for (_, plugin) in self.plugins.iter_mut() {
             let ctx = PluginContext {
                 store: PluginStore::new(),
                 peer_id: peer_id.to_string(),
+                signing_key_bytes,
                 outgoing_tx: Some(outgoing_tx.clone()),
             };
             plugin.on_load(ctx);
