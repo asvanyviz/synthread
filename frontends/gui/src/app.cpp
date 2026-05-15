@@ -116,13 +116,17 @@ SynthreadApp::SynthreadApp(QObject *parent)
 
     connect(m_api, &ApiClient::errorOccurred, this, [this](const QString &err) {
         qWarning() << "API error:" << err;
-        emit error(err);
+        if (m_peerId.isEmpty()) {
+            m_peerId = "offline";
+            emit statusChanged();
+        }
     });
 
     connect(m_refreshTimer, &QTimer::timeout, this, &SynthreadApp::refresh);
-    m_refreshTimer->start(5000); // Refresh every 5 seconds
+    m_refreshTimer->start(5000);
 
-    refresh();
+    // Defer first refresh so QML loads first
+    QTimer::singleShot(500, this, &SynthreadApp::refresh);
 }
 
 SynthreadApp::~SynthreadApp() = default;

@@ -79,6 +79,23 @@ ApplicationWindow {
             }
         }
 
+        // ── Actions ──
+        RowLayout {
+            spacing: 8
+
+            Button {
+                text: "Connect..."
+                onClicked: connectDialog.open()
+                palette.button: "#16213e"
+            }
+            Button {
+                text: "Quit"
+                onClicked: Qt.quit()
+                palette.button: "#16213e"
+            }
+            Item { Layout.fillWidth: true }
+        }
+
         // ── Main Content ──
         RowLayout {
             Layout.fillWidth: true
@@ -126,9 +143,7 @@ ApplicationWindow {
 
                             MouseArea {
                                 anchors.fill: parent
-                                onClicked: {
-                                    selectedPeer.text = modelData
-                                }
+                                onClicked: selectedPeer.text = modelData
                             }
                         }
                     }
@@ -155,7 +170,6 @@ ApplicationWindow {
                         font.bold: true
                     }
 
-                    // Message area
                     ListView {
                         id: messageList
                         Layout.fillWidth: true
@@ -178,7 +192,6 @@ ApplicationWindow {
                         }
                     }
 
-                    // Input bar
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 8
@@ -201,10 +214,7 @@ ApplicationWindow {
 
                             onClicked: {
                                 if (messageInput.text && selectedPeer.text !== "Select a peer to chat") {
-                                    messages.append({
-                                        text: "> " + messageInput.text,
-                                        isMine: true
-                                    })
+                                    messages.append({ text: "> " + messageInput.text, isMine: true })
                                     synthread.sendMessage(selectedPeer.text, messageInput.text)
                                     messageInput.text = ""
                                 }
@@ -251,29 +261,13 @@ ApplicationWindow {
         }
     }
 
-    // ── Menu Bar ──
-    menuBar: MenuBar {
-        Menu {
-            title: "File"
-            MenuItem {
-                text: "Connect to Peer..."
-                onClicked: connectDialog.open()
-            }
-            MenuItem {
-                text: "Refresh"
-                shortcut: "F5"
-                onClicked: synthread.refresh()
-            }
-            MenuSeparator {}
-            MenuItem {
-                text: "Quit"
-                shortcut: "Ctrl+Q"
-                onClicked: Qt.quit()
-            }
-        }
+    // Keyboard shortcuts
+    Shortcut {
+        sequence: "F5"
+        onActivated: synthread.refresh()
     }
-
-    Component.onCompleted: {
-        // Initial refresh is done by SynthreadApp constructor
+    Shortcut {
+        sequence: "Ctrl+Q"
+        onActivated: Qt.quit()
     }
 }
