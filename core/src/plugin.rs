@@ -45,7 +45,9 @@ pub struct PluginStore {
 
 impl PluginStore {
     pub fn new() -> Self {
-        Self { inner: HashMap::new() }
+        Self {
+            inner: HashMap::new(),
+        }
     }
 
     pub fn get(&self, key: &str) -> Option<&Vec<u8>> {
@@ -68,7 +70,9 @@ pub struct PluginManager {
 impl PluginManager {
     pub fn new() -> Self {
         info!("Plugin manager initialized");
-        Self { plugins: HashMap::new() }
+        Self {
+            plugins: HashMap::new(),
+        }
     }
 
     pub fn register(&mut self, plugin: Box<dyn Plugin>) {

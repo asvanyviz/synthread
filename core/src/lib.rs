@@ -1,10 +1,10 @@
-pub mod identity;
+pub mod api;
 pub mod dht;
+pub mod identity;
+pub mod network;
 pub mod peer;
 pub mod plugin;
 pub mod security;
-pub mod network;
-pub mod api;
 
 /// Core library API re-exports
 pub use identity::IdentityManager;

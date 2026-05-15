@@ -1,6 +1,6 @@
 pub mod envelope;
-pub mod store;
 pub mod routes;
+pub mod store;
 
 use synthread_core::plugin::{Plugin, PluginContext};
 

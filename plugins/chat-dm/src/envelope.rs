@@ -13,9 +13,9 @@ pub enum Visibility {
 pub struct Payload {
     #[serde(rename = "type")]
     pub payload_type: String,
-    pub body: String,              // base64-encrypted plaintext
-    pub nonce: String,             // base64
-    pub ephemeral_pubkey: String,  // base64
+    pub body: String,             // base64-encrypted plaintext
+    pub nonce: String,            // base64
+    pub ephemeral_pubkey: String, // base64
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,7 +32,14 @@ pub struct MessageEnvelope {
 }
 
 impl MessageEnvelope {
-    pub fn new(from: &str, to: &str, encrypted_body: &str, nonce: &str, ephemeral_pubkey: &str, signature: &str) -> Self {
+    pub fn new(
+        from: &str,
+        to: &str,
+        encrypted_body: &str,
+        nonce: &str,
+        ephemeral_pubkey: &str,
+        signature: &str,
+    ) -> Self {
         Self {
             version: 1,
             id: Uuid::new_v4().to_string(),

@@ -1,6 +1,9 @@
 //! Chat DM HTTP routes — REST API for sending/receiving messages
 
-use axum::{Router, routing::{get, post, delete}};
+use axum::{
+    routing::{delete, get, post},
+    Router,
+};
 
 pub fn routes() -> Router {
     Router::new()

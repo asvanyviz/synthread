@@ -1,6 +1,6 @@
 //! Identity Manager — Ed25519 keypair generation, persistence, and fingerprint
 
-use ed25519_dalek::{SigningKey, VerifyingKey, Signature, Signer, Verifier};
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use rand::rngs::OsRng;
 use thiserror::Error;
 use tracing::info;
@@ -28,7 +28,10 @@ impl IdentityManager {
         let signing_key = SigningKey::generate(&mut OsRng);
         let verifying_key = signing_key.verifying_key();
         info!("new identity generated");
-        Ok(Self { signing_key, verifying_key })
+        Ok(Self {
+            signing_key,
+            verifying_key,
+        })
     }
 
     /// Return the peer ID as base58-encoded public key (placeholder — will use libp2p PeerId)
@@ -55,10 +58,15 @@ impl IdentityManager {
     }
 
     /// Verify a signature against a peer's public key bytes
-    pub fn verify(peer_bytes: &[u8; 32], data: &[u8], signature: &Signature) -> Result<(), IdentityError> {
-        let verifying_key = VerifyingKey::from_bytes(peer_bytes)
-            .map_err(|_| IdentityError::Verify)?;
-        verifying_key.verify(data, signature)
+    pub fn verify(
+        peer_bytes: &[u8; 32],
+        data: &[u8],
+        signature: &Signature,
+    ) -> Result<(), IdentityError> {
+        let verifying_key =
+            VerifyingKey::from_bytes(peer_bytes).map_err(|_| IdentityError::Verify)?;
+        verifying_key
+            .verify(data, signature)
             .map_err(|_| IdentityError::Verify)
     }
 

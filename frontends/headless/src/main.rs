@@ -8,7 +8,11 @@
 use clap::Parser;
 
 #[derive(Parser)]
-#[command(name = "synthread", version, about = "P2P framework with plugin system")]
+#[command(
+    name = "synthread",
+    version,
+    about = "P2P framework with plugin system"
+)]
 struct Args {
     /// Operating mode: gui, headless, or auto (default)
     #[arg(long, default_value = "auto")]
@@ -27,7 +31,11 @@ async fn main() {
 
     let args = Args::parse();
 
-    tracing::info!("Synthread v{} starting in {} mode", env!("CARGO_PKG_VERSION"), args.mode);
+    tracing::info!(
+        "Synthread v{} starting in {} mode",
+        env!("CARGO_PKG_VERSION"),
+        args.mode
+    );
 
     match args.mode.as_str() {
         "headless" => run_headless(args.port).await,

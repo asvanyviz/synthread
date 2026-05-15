@@ -1,7 +1,7 @@
 //! Message store — encrypted local SQLite storage for offline messages
 
-use std::collections::HashMap;
 use crate::envelope::MessageEnvelope;
+use std::collections::HashMap;
 
 pub struct MessageStore {
     // In-memory store for Phase 0; SQLCipher for Phase 2
@@ -10,11 +10,16 @@ pub struct MessageStore {
 
 impl MessageStore {
     pub fn new() -> Self {
-        Self { messages: HashMap::new() }
+        Self {
+            messages: HashMap::new(),
+        }
     }
 
     pub fn store(&mut self, peer_id: &str, msg: MessageEnvelope) {
-        self.messages.entry(peer_id.to_string()).or_default().push(msg);
+        self.messages
+            .entry(peer_id.to_string())
+            .or_default()
+            .push(msg);
     }
 
     pub fn get_messages(
@@ -27,7 +32,9 @@ impl MessageStore {
         match msgs {
             Some(list) => {
                 let filtered: Vec<&MessageEnvelope> = if let Some(since_ts) = since {
-                    list.iter().filter(|m| m.timestamp.as_str() > since_ts).collect()
+                    list.iter()
+                        .filter(|m| m.timestamp.as_str() > since_ts)
+                        .collect()
                 } else {
                     list.iter().collect()
                 };
